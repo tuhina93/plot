@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Plot wise Crop Health Monitoring</title>
+
+    <!-- Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial;
+        }
+
+        #map {
+            height: 85vh;
+        }
+
+        .panel {
+            padding: 10px;
+            background: #f5f5f5;
+        }
+
+        #info {
+            background: white;
+            padding: 10px;
+            margin-top: 5px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+
+<body>
+
+<h2 style="text-align:center;">🌾 Plot wise Crop Monitoring System</h2>
+
+<div class="panel">
+    <label>Select Year:</label>
+    <select id="year">
+        <option value="2020">2020</option>
+        <option value="2021">2021</option>
+        <option value="2022" selected>2022</option>
+        <option value="2023">2023</option>
+        <option value="2024">2024</option>
+    </select>
+
+    <div id="info">Click a plot</div>
+</div>
+
+<div id="map"></div>
+
+<script>
+
+// ---------------- MAP ---------------- //
+var map = L.map('map').setView([29.86, 77.91], 14);
+
+// Satellite basemap
+L.tileLayer(
+  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+).addTo(map);
+
+
+// ---------------- LOAD PLOTS ---------------- //
+
+fetch('/plots')
+.then(res => res.json())
+.then(data => {
+
+    var geoLayer = L.geoJSON(data, {
+
+        onEachFeature: function(feature, layer) {
+
+            layer.on('click', function() {
+
+                var id = feature.properties.id;
+
+                // ✅ Get selected year
+                let year = document.getElementById("year").value;
+
+                document.getElementById("info").innerHTML = "Loading...";
+
+                // ✅ Send year to Flask
+                fetch(`/plot/${id}?year=${year}`)
+                .then(res => res.json())
+                .then(data => {
+
+                    let html =
+                        "<b>Plot ID:</b> " + id + "<br>" +
+                        "<b>Crop:</b> " + data.crop + "<br>" +
+                        "<b>NDVI:</b> " + data.ndvi + "<br>" +
+                        "<b>Health:</b> " + data.health;
+
+                    // panel update
+                    document.getElementById("info").innerHTML = html;
+
+                    // popup
+                    layer.bindPopup(html).openPopup();
+
+                    // ✅ optional: change color by health
+                    if (data.health === "Poor") {
+                        layer.setStyle({color: "red"});
+                    } else if (data.health === "Moderate") {
+                        layer.setStyle({color: "yellow"});
+                    } else if (data.health === "Healthy") {
+                        layer.setStyle({color: "green"});
+                    }
+
+                });
+
+            });
+
+        }
+
+    }).addTo(map);
+
+    map.fitBounds(geoLayer.getBounds());
+});
+
+</script>
+
+</body>
+</html>
